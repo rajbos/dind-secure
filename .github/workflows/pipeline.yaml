@@ -18,13 +18,6 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
-    - name: PS Lint
-      if: ${{ true }}  # enable for now
-      uses: rajbos-actions/github-action-psscriptanalyzer@master
-      with:
-        failOnWarnings: false
-        settingsPath: /src/PSSASettings.psd1
-
     - name: Build the Docker image
       run: docker build -t $containertag .
 
