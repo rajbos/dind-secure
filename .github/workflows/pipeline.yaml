@@ -1,0 +1,53 @@
+name: Build and Push Docker container
+
+on: 
+  push:
+    branches:
+      - main
+
+env:  
+  containertag: ghcr.io/rajbos/docker-in-docker
+  containerhost: https://ghcr.io
+
+jobs:
+  build-and-push-main:
+
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: PS Lint
+      if: ${{ true }}  # enable for now
+      uses: rajbos-actions/github-action-psscriptanalyzer@master
+      with:
+        failOnWarnings: false
+        settingsPath: /src/PSSASettings.psd1
+
+    - name: Build the Docker image
+      run: docker build -t $containertag .
+
+    - name: Setup GitHub Container Registry
+      run: echo "${{ secrets.GH_PAT }}" | docker login $containerhost -u ${{ github.actor }} --password-stdin
+
+    - name: Push to GitHub Container Registry
+      run:  docker push $containertag
+
+    - name: Cleanup GitHub Container Registry login data
+      run: docker logout $containerhost
+
+    - name: Run Snyk to check Docker image for vulnerabilities
+      if: ${{ true }}  # enable for now
+      uses: rajbos-actions/snyk-actions/docker@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:      
+        image: ${{ env.containertag }}
+        args: --file=Dockerfile
+      continue-on-error: true
+
+    - name: Upload Snyk scan result to GitHub Code Scanning
+      uses: github/codeql-action/upload-sarif@v1
+      with:
+        sarif_file: snyk.sarifs
